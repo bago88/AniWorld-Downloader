@@ -446,9 +446,7 @@ def _resolve_stream_url_with_fallback(self, action_name):
     raise RuntimeError(f"{action_name} failed: no providers available")
 
 
-# Thread-safe global for current ffmpeg download progress (used by web UI)
-_ffmpeg_progress_lock = threading.Lock()
-_ffmpeg_progress = {
+_IDLE_PROGRESS = {
     "percent": 0.0,
     "time": "",
     "speed": "",
@@ -457,10 +455,63 @@ _ffmpeg_progress = {
 }
 
 
+class _ProgressBoard:
+    """Live download progress, one slot per downloading thread.
+
+    Writers update their own slot like a dict; ``snapshot`` merges every
+    active slot so parallel downloads show up as one queue item. The merged
+    percent adds up, as the queue counts it in episodes on top of the done ones.
+    """
+
+    def __init__(self):
+        self._slots = {}
+
+    @staticmethod
+    def key():
+        return threading.get_ident()
+
+    def update(self, key=None, **fields):
+        key = self.key() if key is None else key
+        slot = self._slots.setdefault(key, dict(_IDLE_PROGRESS))
+        slot.update(fields)
+        if not slot["active"]:
+            del self._slots[key]
+
+    def get(self, name, default=None):
+        return self._slots.get(self.key(), {}).get(name, default)
+
+    def snapshot(self):
+        active = list(self._slots.values())
+        if not active:
+            return dict(_IDLE_PROGRESS)
+        if len(active) == 1:
+            return dict(active[0])
+        rates = [_megabytes_per_second(slot["bandwidth"]) for slot in active]
+        return {
+            "percent": round(sum(slot["percent"] for slot in active), 1),
+            "time": " | ".join(slot["time"] for slot in active if slot["time"]),
+            "speed": " | ".join(slot["speed"] for slot in active if slot["speed"]),
+            "bandwidth": f"{sum(rates):.1f} MB/s" if any(rates) else "",
+            "active": True,
+        }
+
+
+def _megabytes_per_second(text):
+    try:
+        return float(text.split()[0])
+    except (AttributeError, IndexError, ValueError):
+        return 0.0
+
+
+# Thread-safe live progress for the web UI
+_ffmpeg_progress_lock = threading.Lock()
+_ffmpeg_progress = _ProgressBoard()
+
+
 def get_ffmpeg_progress():
     """Return a snapshot of the current ffmpeg download progress."""
     with _ffmpeg_progress_lock:
-        return dict(_ffmpeg_progress)
+        return _ffmpeg_progress.snapshot()
 
 
 def _parse_ffmpeg_time(time_str):

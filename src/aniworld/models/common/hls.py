@@ -346,6 +346,8 @@ class _ProgressTracker:
         self.done = 0
         self.bytes_written = 0
         self._common = _common()
+        # Segments arrive on pool threads; report into the caller's slot.
+        self._slot = self._common._ffmpeg_progress.key()
         self._last_bytes = 0
         self._last_tick = time.monotonic()
         self._bandwidth = ""
@@ -368,6 +370,7 @@ class _ProgressTracker:
 
         with self._common._ffmpeg_progress_lock:
             self._common._ffmpeg_progress.update(
+                key=self._slot,
                 percent=percent,
                 time=f"{counter} segments",
                 speed="",

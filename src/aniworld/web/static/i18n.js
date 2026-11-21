@@ -157,6 +157,9 @@
       "settings.provider_fallback": "Anbieter-Reihenfolge",
       "settings.provider_fallback_hint":
         "Zieh einen Anbieter, um ihn zu verschieben. Der ausgewählte Anbieter wird immer zuerst versucht. Schlägt er fehl, wird diese Reihenfolge durchlaufen.",
+      "settings.parallel_downloads": "Zwei Folgen gleichzeitig laden",
+      "settings.parallel_downloads_hint":
+        "Anbieter wie VOE begrenzen das Tempo pro Stream, deshalb sind zwei Folgen eines Auftrags gleichzeitig etwa doppelt so schnell fertig. Verschiedene Aufträge laufen weiterhin nacheinander.",
       "settings.lang_separation": "Sprachen in eigene Ordner trennen",
       "settings.lang_separation_hint":
         "Downloads werden pro Sprache in Unterordner sortiert (german-dub/, english-sub/, ...).",
