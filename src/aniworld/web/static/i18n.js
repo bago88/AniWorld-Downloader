@@ -157,6 +157,9 @@
       "settings.provider_fallback": "Anbieter-Reihenfolge",
       "settings.provider_fallback_hint":
         "Zieh einen Anbieter, um ihn zu verschieben. Der ausgewählte Anbieter wird immer zuerst versucht. Schlägt er fehl, wird diese Reihenfolge durchlaufen.",
+      "settings.slow_provider_fallback": "Bei zu langsamem Anbieter wechseln",
+      "settings.slow_provider_fallback_hint":
+        "Bleibt ein Download eine Minute lang unter doppelter Echtzeit, startet er mit dem nächsten Anbieter dieser Reihenfolge neu. Der letzte Anbieter lädt immer zu Ende, egal wie langsam.",
       "settings.lang_separation": "Sprachen in eigene Ordner trennen",
       "settings.lang_separation_hint":
         "Downloads werden pro Sprache in Unterordner sortiert (german-dub/, english-sub/, ...).",

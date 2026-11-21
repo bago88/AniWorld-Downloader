@@ -107,6 +107,14 @@
             through this order.
           </p>
 
+          <label class="checkbox">
+            <input type="checkbox" id="slowProviderFallback" data-setting="slow_provider_fallback" />
+            <span data-i18n="settings.slow_provider_fallback">Fall back when a provider is too slow</span>
+          </label>
+          <p class="hint" data-i18n="settings.slow_provider_fallback_hint">
+            If a download stays below 2x realtime for a minute, it restarts with the next provider in this order. The last provider always finishes, however slow.
+          </p>
+
           <h3 data-i18n="settings.output_format">Output Format</h3>
           <div class="control-row">
             <label class="field field-compact">

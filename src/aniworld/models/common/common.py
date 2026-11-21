@@ -1,6 +1,7 @@
 import getpass
 import glob
 import hashlib
+import itertools
 import os
 import platform
 import queue
@@ -491,6 +492,48 @@ class DownloadCancelled(Exception):
     """Raised when we killed the download ourselves, not when it failed."""
 
 
+class DownloadTooSlow(Exception):
+    """Raised when a network download stays below the minimum speed."""
+
+
+SLOW_PROVIDER_WARMUP = 30
+SLOW_PROVIDER_WINDOW = 60
+_slow_provider = threading.local()
+
+
+def _slow_provider_min_speed():
+    """Minimum ffmpeg speed while a fallback provider is available, else None."""
+    if os.getenv("ANIWORLD_SLOW_PROVIDER_FALLBACK", "0") != "1":
+        return None
+    if not getattr(_slow_provider, "has_fallback", False):
+        return None
+    try:
+        return float(os.getenv("ANIWORLD_SLOW_PROVIDER_MIN_SPEED", "2"))
+    except ValueError:
+        return 2.0
+
+
+class _SlowDownloadWatch:
+    """Tell when ffmpeg's realtime speed stays below a minimum for too long."""
+
+    def __init__(self, min_speed, start):
+        self.min_speed = min_speed
+        self.start = start
+        self.slow_since = None
+
+    def too_slow(self, speed_str, now):
+        try:
+            speed = float(speed_str.rstrip("x"))
+        except ValueError:
+            return False
+        if now - self.start < SLOW_PROVIDER_WARMUP or speed >= self.min_speed:
+            self.slow_since = None
+            return False
+        if self.slow_since is None:
+            self.slow_since = now
+        return now - self.slow_since >= SLOW_PROVIDER_WINDOW
+
+
 def _run_ffmpeg_with_progress(node, overwrite_output=True, label=""):
     """Run an ffmpeg node and stream its progress output cleanly.
 
@@ -521,6 +564,19 @@ def _run_ffmpeg_with_progress(node, overwrite_output=True, label=""):
     if "-stats_period" not in args:
         args.insert(-1, "-stats_period")
         args.insert(-1, stats_period)
+
+    min_speed = _slow_provider_min_speed()
+    reads_network = any(
+        arg.startswith(("http://", "https://"))
+        for flag, arg in itertools.pairwise(args)
+        if flag == "-i"
+    )
+    slow_watch = (
+        _SlowDownloadWatch(min_speed, time.monotonic())
+        if min_speed is not None and reads_network
+        else None
+    )
+    too_slow = False
 
     process = subprocess.Popen(
         args,
@@ -661,6 +717,15 @@ def _run_ffmpeg_with_progress(node, overwrite_output=True, label=""):
                     process.kill()
                     break
 
+                if slow_watch and slow_watch.too_slow(cur_speed_str, time.monotonic()):
+                    logger.warning(
+                        f"[FFmpeg] Below {slow_watch.min_speed}x for "
+                        f"{SLOW_PROVIDER_WINDOW}s, trying the next provider."
+                    )
+                    too_slow = True
+                    process.kill()
+                    break
+
                 try:
                     from ...playwright.captcha import _local
                     from ...web.db import is_queue_force_cancelled
@@ -712,6 +777,8 @@ def _run_ffmpeg_with_progress(node, overwrite_output=True, label=""):
     # printed on its way out are not worth reporting.
     if cancelled:
         raise DownloadCancelled("Download cancelled")
+    if too_slow:
+        raise DownloadTooSlow(f"stayed below {slow_watch.min_speed}x")
     if process.returncode != 0:
         detail = (
             "\n".join(stderr_lines[-20:])
@@ -1209,6 +1276,13 @@ def _download_full_stream(
 
 def download(self):
     """Download required audio/video streams for an episode (AniWorld + serienstream.to) with retry logic."""
+    try:
+        return _download_with_providers(self)
+    finally:
+        _slow_provider.has_fallback = False
+
+
+def _download_with_providers(self):
     if platform.system() == "Windows":
         manager = DependencyManager()
         manager.fetch_binary("ffmpeg")
@@ -1223,6 +1297,7 @@ def download(self):
 
     for provider_index, provider_name in enumerate(provider_order):
         _set_selected_provider(self, provider_name)
+        _slow_provider.has_fallback = provider_index + 1 < len(provider_order)
 
         # MoflixClick's extractor already checks each advertised HLS mirror.
         # Repeating a failed full download three times can leave its queue item
@@ -1488,6 +1563,17 @@ def download(self):
                     protected=getattr(self, "selected_path", None),
                 )
                 raise
+
+            except DownloadTooSlow as e:
+                # Retrying the same throttled stream would be just as slow.
+                _cleanup_episode_download(self)
+                provider_errors[provider_name] = e
+                logger.warning(
+                    f"Provider {provider_name} too slow, falling back to "
+                    f"{provider_order[provider_index + 1]} for "
+                    f"{getattr(self, 'url', 'episode')}"
+                )
+                break
 
             except Exception as e:
                 _cleanup_episode_download(self)

@@ -378,6 +378,7 @@ def read_settings():
         "download_path": str(paths.default_download_path()),
         "lang_separation": paths.lang_separation_enabled(),
         "disable_english_sub": english_sub_disabled(),
+        "slow_provider_fallback": _flag("ANIWORLD_SLOW_PROVIDER_FALLBACK"),
         "show_all_languages": show_all_languages(),
         **{f"enable_{site}": state for site, state in enabled_sites().items()},
         "enable_library": library_enabled(),
@@ -412,6 +413,7 @@ def read_settings():
 _BOOL_SETTINGS = {
     "lang_separation": "ANIWORLD_LANG_SEPARATION",
     "disable_english_sub": "ANIWORLD_DISABLE_ENGLISH_SUB",
+    "slow_provider_fallback": "ANIWORLD_SLOW_PROVIDER_FALLBACK",
     "show_all_languages": "ANIWORLD_SHOW_ALL_LANGUAGES",
     "enable_library": "ANIWORLD_ENABLE_LIBRARY",
     "enable_autosync": "ANIWORLD_ENABLE_AUTOSYNC",
@@ -560,6 +562,10 @@ def _env_sections():
                 (
                     "ANIWORLD_PROVIDER_FALLBACK_ORDER",
                     ",".join(get_provider_fallback_order(WORKING_PROVIDERS)),
+                ),
+                (
+                    "ANIWORLD_SLOW_PROVIDER_FALLBACK",
+                    _one_or_zero(_flag("ANIWORLD_SLOW_PROVIDER_FALLBACK")),
                 ),
                 (
                     "ANIWORLD_LANG_SEPARATION",

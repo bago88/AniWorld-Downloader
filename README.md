@@ -54,7 +54,7 @@ Prefer another installation method? Use [Docker](#docker) or download a standalo
 - Download individual episodes, whole seasons or series, movies, and manga chapters.
 - Search supported sites, track your download queue, and browse your library in the Web UI.
 - Schedule Auto-Sync checks for AniWorld titles already downloaded to your library.
-- Choose available audio and subtitle languages, with fallback to other stream hosters.
+- Choose available audio and subtitle languages, with fallback to other stream hosters, optionally also when a hoster is too slow.
 - Customize supported naming templates and output formats, including MKV/MP4 for video and JPG/CBZ/EPUB for manga; naming support varies by backend.
 - AniWorld and SerienStream use explicit episode numbers from English titles, including `[Episode N]` and `[JP Episode N]`, with seasonal numbering as fallback and existing seasonal downloads recognised.
 - Watch through external players, with AniSkip and Anime4K support where applicable.
