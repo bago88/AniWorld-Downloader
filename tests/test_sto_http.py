@@ -143,3 +143,21 @@ def test_response_text_does_not_include_query_in_error():
 
     assert "signed" not in str(error.value)
     assert "secret" not in str(error.value)
+
+
+def _doh_timeouts(session):
+    resolvers = session.resolver._unconstrained + session.resolver._constrained
+    return [r._pool.timeout for r in resolvers if hasattr(r, "_pool")]
+
+
+@pytest.mark.parametrize(
+    "session", [GLOBAL_SESSION, http._new_session()], ids=["global", "serienstream"]
+)
+def test_doh_lookup_cannot_block_forever(session):
+    # A lookup on a silently dropped connection must fail instead of hanging.
+    timeouts = _doh_timeouts(session)
+
+    assert timeouts
+    for timeout in timeouts:
+        assert isinstance(timeout.connect_timeout, (int, float))
+        assert isinstance(timeout.read_timeout, (int, float))

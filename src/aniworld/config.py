@@ -157,8 +157,13 @@ DEFAULT_USER_AGENT = _get_random_user_agent()
 # I already made a lazy-loading wrapper that defers all the __init__.py imports
 # in another branch, but for now I just have to sit through the import time
 # every run, even though the actual fetch only takes about a second
+
+# The request timeout does not cover the DoH lookup, which otherwise waits
+# forever on a connection that a VPN reconnect dropped silently.
+DOH_RESOLVER = "doh+cloudflare://?timeout=10"
+
 GLOBAL_SESSION = Session(
-    resolver=["doh+cloudflare://"],
+    resolver=[DOH_RESOLVER],
     disable_http3=True,
     multiplexed=False,
     headers={

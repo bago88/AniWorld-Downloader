@@ -15,9 +15,21 @@ from niquests import Session
 from urllib3.exceptions import InsecureRequestWarning
 
 try:
-    from ...config import GLOBAL_SESSION, STO_DOMAINS, STO_HOST_RE, STO_IP
+    from ...config import (
+        DOH_RESOLVER,
+        GLOBAL_SESSION,
+        STO_DOMAINS,
+        STO_HOST_RE,
+        STO_IP,
+    )
 except ImportError:
-    from aniworld.config import GLOBAL_SESSION, STO_DOMAINS, STO_HOST_RE, STO_IP
+    from aniworld.config import (
+        DOH_RESOLVER,
+        GLOBAL_SESSION,
+        STO_DOMAINS,
+        STO_HOST_RE,
+        STO_IP,
+    )
 
 warnings.simplefilter("ignore", InsecureRequestWarning)
 
@@ -66,7 +78,7 @@ def _new_session():
     # Brotli support is optional. Asking only for encodings every supported
     # installation can decode keeps ``response.text`` deterministic.
     session = Session(
-        resolver=["doh+cloudflare://"],
+        resolver=[DOH_RESOLVER],
         disable_http3=True,
         multiplexed=False,
         headers=_global_headers(),
