@@ -528,6 +528,11 @@ def _download_queue_id():
     return getattr(_local, "queue_id", None)
 
 
+def _hold_on_provider_block():
+    """Opt-in: a blocked provider fails the episode instead of falling back."""
+    return os.getenv("ANIWORLD_NO_FALLBACK_ON_BLOCK") == "1"
+
+
 def _force_cancel_requested(queue_id=None):
     """Whether the web queue force-cancelled this download."""
     try:
@@ -1313,7 +1318,10 @@ def download(self):
     if hasattr(self, "season_episode_number"):
         episode_metadata["metadata"] = f"comment={EPISODE_URL_PREFIX}{self.url}"
 
+    held = False
     for provider_index, provider_name in enumerate(provider_order):
+        if held:
+            break
         _set_selected_provider(self, provider_name)
 
         # MoflixClick's extractor already checks each advertised HLS mirror.
@@ -1608,7 +1616,15 @@ def download(self):
                     f"Download attempt {attempt}/{provider_retries} failed for provider "
                     f"{provider_name}: {e}"
                 )
-                from ...extractors.common import ProviderUnavailable
+                from ...extractors.common import ProviderBlocked, ProviderUnavailable
+
+                if isinstance(e, ProviderBlocked) and _hold_on_provider_block():
+                    logger.warning(
+                        f"{provider_name} blocks this connection, not falling back "
+                        f"for {getattr(self, 'url', 'episode')}"
+                    )
+                    held = True
+                    break
 
                 # Retrying cannot bring back a deleted or blocked video.
                 if attempt < provider_retries and not isinstance(

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from aniworld.extractors.common import ProviderUnavailable
+from aniworld.extractors.common import ProviderBlocked, ProviderUnavailable
 from aniworld.extractors.provider import voe
 from aniworld.models import AniworldEpisode
 from aniworld.models.common import common
@@ -198,6 +198,73 @@ def test_unavailable_provider_falls_back_without_retrying(tmp_path, monkeypatch)
     with pytest.raises(RuntimeError, match="VOE"):
         episode.download()
     assert attempts == ["VOE", "Vidoza", "Vidoza", "Vidoza"]
+
+
+def _blocked_voe_episode(tmp_path, monkeypatch, attempts):
+    episode = AniworldEpisode(
+        "https://aniworld.to/anime/stream/example/staffel-1/episode-1",
+        series=SimpleNamespace(
+            title_cleaned="Example", release_year="2024", imdb="tt123"
+        ),
+        season=SimpleNamespace(season_number=1),
+        episode_number=1,
+        title_de="Titel",
+        title_en="Title",
+        selected_path=tmp_path,
+        selected_language="German Dub",
+    )
+    monkeypatch.setattr(common, "platform", SimpleNamespace(system=lambda: "Linux"))
+    monkeypatch.setattr(
+        common,
+        "check_downloaded",
+        Mock(
+            return_value={"exists": False, "audio_langs": set(), "video_langs": set()}
+        ),
+    )
+    monkeypatch.setattr(
+        type(episode), "provider_attempt_order", lambda self: ("VOE", "Doodstream")
+    )
+
+    def stream(self):
+        attempts.append(self.selected_provider)
+        if self.selected_provider == "VOE":
+            raise voe._VOEBlocked("VOE still blocked after challenge (HTTP 403)")
+        raise ValueError("Doodstream is down")
+
+    monkeypatch.setattr(type(episode), "stream_url", property(stream))
+    return episode
+
+
+def test_blocked_voe_falls_back_by_default(tmp_path, monkeypatch):
+    attempts = []
+    episode = _blocked_voe_episode(tmp_path, monkeypatch, attempts)
+    with pytest.raises(RuntimeError, match="VOE"):
+        episode.download()
+    assert attempts == ["VOE", "Doodstream", "Doodstream", "Doodstream"]
+
+
+def test_blocked_voe_does_not_fall_back_when_asked_to_hold(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANIWORLD_NO_FALLBACK_ON_BLOCK", "1")
+    attempts = []
+    episode = _blocked_voe_episode(tmp_path, monkeypatch, attempts)
+    with pytest.raises(RuntimeError, match="VOE still blocked"):
+        episode.download()
+    assert attempts == ["VOE"]
+
+
+def test_a_deleted_voe_video_still_falls_back_when_holding(voe_static, monkeypatch):
+    monkeypatch.setenv("ANIWORLD_NO_FALLBACK_ON_BLOCK", "1")
+    voe_static.fetch.return_value = ("gone", "https://voe.sx/e/start", 404)
+    with pytest.raises(ProviderUnavailable) as raised:
+        voe.get_direct_link_from_voe("https://voe.sx/e/start")
+    assert not isinstance(raised.value, ProviderBlocked)
+
+
+def test_an_unsolved_voe_challenge_counts_as_blocked(voe_static):
+    voe_static.fetch.side_effect = [BLOCKED]
+    voe_static.solve.return_value = None
+    with pytest.raises(ProviderBlocked):
+        voe.get_direct_link_from_voe("https://voe.sx/e/start")
 
 
 def test_missing_chromium_error_survives_modal_solver(monkeypatch, tmp_path):
