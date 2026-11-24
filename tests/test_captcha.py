@@ -880,3 +880,4 @@ def test_solve_keeps_waiting_while_the_ddos_guard_check_runs(browser, monkeypatc
     page.evaluate.side_effect = evaluate
     assert captcha._solve(SOURCE, timeout=30) == SOURCE
     assert page.wait_for_timeout.call_count == passed_after
+    handle.close.assert_called_once()
