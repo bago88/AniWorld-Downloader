@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 import ffmpeg
@@ -488,6 +489,32 @@ _ffmpeg_progress = {
 }
 
 
+class RateMeter:
+    """Average transfer rate over the last few seconds.
+
+    HLS segments arrive in bursts of several MB, so a rate taken between two
+    progress lines jumps between zero and a multiple of the real speed.
+    """
+
+    def __init__(self, window=10.0):
+        self._window = window
+        self._samples = deque()
+
+    def add(self, total_bytes, now=None):
+        now = time.monotonic() if now is None else now
+        self._samples.append((now, total_bytes))
+        while len(self._samples) > 2 and now - self._samples[1][0] >= self._window:
+            self._samples.popleft()
+
+    def label(self):
+        if len(self._samples) < 2:
+            return ""
+        (start, first), (end, last) = self._samples[0], self._samples[-1]
+        if end - start < 1:
+            return ""
+        return f"{max(last - first, 0) / (end - start) / 1024 / 1024:.1f} MB/s"
+
+
 def get_ffmpeg_progress():
     """Return a snapshot of the current ffmpeg download progress."""
     with _ffmpeg_progress_lock:
@@ -608,8 +635,7 @@ def _run_ffmpeg_with_progress(node, overwrite_output=True, label=""):
     stderr_lines = []  # collect non-progress stderr lines for error reporting
     last_frame = None
     last_time = None
-    last_size_kb = None
-    last_size_ts = None
+    rate = RateMeter()
     last_change = time.monotonic()
     total_duration = 0.0
     cancelled = False
@@ -667,16 +693,8 @@ def _run_ffmpeg_with_progress(node, overwrite_output=True, label=""):
                     size_val = float(m.group(1))
                     size_unit = m.group(2).lower()
                     size_kb = size_val * (1024 if size_unit == "m" else 1)
-                    now = time.monotonic()
-                    if last_size_kb is not None and last_size_ts is not None:
-                        dt = now - last_size_ts
-                        if dt > 0:
-                            kb_per_sec = (size_kb - last_size_kb) / dt
-                            if kb_per_sec > 0:
-                                mb_per_sec = kb_per_sec / 1024
-                                cur_bw_str = f"{mb_per_sec:.1f} MB/s"
-                    last_size_kb = size_kb
-                    last_size_ts = now
+                    rate.add(size_kb * 1024)
+                    cur_bw_str = rate.label()
 
                 # Compute percentage
                 percent = 0.0
@@ -850,8 +868,7 @@ def _download_direct_http(episode_path, stream_url, file_name):
 
         total = int(resp.headers.get("Content-Length", 0))
         downloaded = 0
-        last_ts = time.monotonic()
-        last_bytes = 0
+        rate = RateMeter()
 
         with _ffmpeg_progress_lock:
             _ffmpeg_progress.update(
@@ -870,14 +887,8 @@ def _download_direct_http(episode_path, stream_url, file_name):
                     mb = downloaded / 1024 / 1024
                     total_mb = total / 1024 / 1024
 
-                    now = time.monotonic()
-                    dt = now - last_ts
-                    bw_str = ""
-                    if dt > 0.5:
-                        bw = (downloaded - last_bytes) / dt / 1024 / 1024
-                        bw_str = f"{bw:.1f} MB/s"
-                        last_ts = now
-                        last_bytes = downloaded
+                    rate.add(downloaded)
+                    bw_str = rate.label()
 
                     with _ffmpeg_progress_lock:
                         prev_bw = _ffmpeg_progress.get("bandwidth", "")

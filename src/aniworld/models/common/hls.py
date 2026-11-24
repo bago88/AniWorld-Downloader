@@ -351,22 +351,15 @@ class _ProgressTracker:
         self.done = 0
         self.bytes_written = 0
         self._common = _common()
-        self._last_bytes = 0
-        self._last_tick = time.monotonic()
+        self._rate = self._common.RateMeter()
+        self._rate.add(0)
         self._bandwidth = ""
 
     def advance(self, chunk_size):
         self.done += 1
         self.bytes_written += chunk_size
-
-        now = time.monotonic()
-        elapsed = now - self._last_tick
-        if elapsed > 0.5:
-            per_second = (self.bytes_written - self._last_bytes) / elapsed
-            if per_second > 0:
-                self._bandwidth = f"{per_second / 1024 / 1024:.1f} MB/s"
-            self._last_bytes = self.bytes_written
-            self._last_tick = now
+        self._rate.add(self.bytes_written)
+        self._bandwidth = self._rate.label() or self._bandwidth
 
         percent = round(self.done / self.total * 100, 1) if self.total else 0.0
         counter = f"{self.done}/{self.total}"
