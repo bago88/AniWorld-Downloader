@@ -99,6 +99,12 @@
     el("downloadPath").value = settings.download_path || "";
     el("uiLanguage").value = settings.ui_language;
     el("outputFormat").value = settings.output_format;
+    const parallel = el("parallelEpisodes");
+    parallel.replaceChildren();
+    for (let count = 2; count <= settings.max_parallel_episodes; count++) {
+      parallel.add(new Option(String(count), String(count)));
+    }
+    parallel.value = String(settings.parallel_episodes);
 
     document.querySelectorAll("[data-setting]").forEach((box) => {
       box.checked = Boolean(settings[box.dataset.setting]);
@@ -178,6 +184,10 @@
 
   el("outputFormat").addEventListener("change", () => {
     save({ output_format: el("outputFormat").value });
+  });
+
+  el("parallelEpisodes").addEventListener("change", () => {
+    save({ parallel_episodes: Number(el("parallelEpisodes").value) });
   });
 
   /* ===== Provider fallback order =====

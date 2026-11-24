@@ -157,9 +157,10 @@
       "settings.provider_fallback": "Anbieter-Reihenfolge",
       "settings.provider_fallback_hint":
         "Zieh einen Anbieter, um ihn zu verschieben. Der ausgewählte Anbieter wird immer zuerst versucht. Schlägt er fehl, wird diese Reihenfolge durchlaufen.",
-      "settings.parallel_downloads": "Zwei Folgen gleichzeitig laden",
+      "settings.parallel_downloads": "Mehrere Folgen gleichzeitig laden",
+      "settings.parallel_episodes": "Folgen gleichzeitig",
       "settings.parallel_downloads_hint":
-        "Anbieter wie VOE begrenzen das Tempo pro Stream, deshalb sind zwei Folgen eines Auftrags gleichzeitig etwa doppelt so schnell fertig. Verschiedene Aufträge laufen weiterhin nacheinander.",
+        "Anbieter wie VOE begrenzen das Tempo pro Stream, deshalb sind die Folgen eines Auftrags schneller fertig, wenn mehrere gleichzeitig laden. Jeder Stream braucht etwa 2–4 MB/s: 2 passen zu einer 50-Mbit/s-Leitung, 3 zu 100 Mbit/s. Mehr, als die Leitung schafft, bremst nur jede Folge aus. Verschiedene Aufträge laufen weiterhin nacheinander.",
       "settings.lang_separation": "Sprachen in eigene Ordner trennen",
       "settings.lang_separation_hint":
         "Downloads werden pro Sprache in Unterordner sortiert (german-dub/, english-sub/, ...).",

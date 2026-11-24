@@ -24,13 +24,25 @@ _start_lock = threading.Lock()
 # How long to wait before looking at the queue again when it is empty.
 IDLE_SECONDS = 3
 
-# Hosters throttle each stream, not the connection, so two episodes at once
-# roughly double the throughput without hammering a single stream.
+# Hosters throttle each stream, not the connection, so a few episodes at once
+# multiply the throughput until the line itself is full.
 PARALLEL_EPISODES = 2
+MAX_PARALLEL_EPISODES = 6
+
+
+def parallel_episode_count():
+    """How many episodes run at once while parallel downloads are on."""
+    try:
+        count = int(os.getenv("ANIWORLD_PARALLEL_EPISODES", PARALLEL_EPISODES))
+    except ValueError:
+        return PARALLEL_EPISODES
+    return min(max(count, 2), MAX_PARALLEL_EPISODES)
 
 
 def _parallel_episodes():
-    return PARALLEL_EPISODES if os.getenv("ANIWORLD_PARALLEL_DOWNLOADS") == "1" else 1
+    if os.getenv("ANIWORLD_PARALLEL_DOWNLOADS") != "1":
+        return 1
+    return parallel_episode_count()
 
 
 def ensure_started():
