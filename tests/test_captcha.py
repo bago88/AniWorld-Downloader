@@ -855,3 +855,28 @@ def test_force_cancel_stops_waiting_for_a_captcha(browser, monkeypatch):
         captcha._solve(SOURCE, timeout=90)
     assert page.wait_for_timeout.call_count == 2
     handle.close.assert_called_once()
+
+
+def test_dom_detection_waits_for_the_ddos_guard_check():
+    """VOE's DDoS-Guard page has no widget, so only its title and body mark it."""
+    page = Mock(frames=[])
+    page.evaluate.side_effect = lambda script, *args: "ddos-guard" in script
+    assert captcha._is_captcha_page_dom(page)
+    assert "[data-ddg-origin]" in captcha._CHALLENGE_PAGE_JS
+
+
+def test_solve_keeps_waiting_while_the_ddos_guard_check_runs(browser, monkeypatch):
+    handle, page = browser
+    solver = Mock()
+    solver.ready_to_submit.return_value = False
+    monkeypatch.setattr(captcha, "_ChallengeSolver", lambda **_: solver)
+    passed_after = 3
+
+    def evaluate(script, *args, **kwargs):
+        if script == captcha._CHALLENGE_PAGE_JS:
+            return page.wait_for_timeout.call_count < passed_after
+        return []
+
+    page.evaluate.side_effect = evaluate
+    assert captcha._solve(SOURCE, timeout=30) == SOURCE
+    assert page.wait_for_timeout.call_count == passed_after
