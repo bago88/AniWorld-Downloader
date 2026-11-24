@@ -378,6 +378,7 @@ def read_settings():
         "download_path": str(paths.default_download_path()),
         "lang_separation": paths.lang_separation_enabled(),
         "disable_english_sub": english_sub_disabled(),
+        "parallel_downloads": _flag("ANIWORLD_PARALLEL_DOWNLOADS"),
         "season_episode_numbers": _flag("ANIWORLD_SEASON_EPISODE_NUMBERS"),
         "show_all_languages": show_all_languages(),
         **{f"enable_{site}": state for site, state in enabled_sites().items()},
@@ -413,6 +414,7 @@ def read_settings():
 _BOOL_SETTINGS = {
     "lang_separation": "ANIWORLD_LANG_SEPARATION",
     "disable_english_sub": "ANIWORLD_DISABLE_ENGLISH_SUB",
+    "parallel_downloads": "ANIWORLD_PARALLEL_DOWNLOADS",
     "season_episode_numbers": "ANIWORLD_SEASON_EPISODE_NUMBERS",
     "show_all_languages": "ANIWORLD_SHOW_ALL_LANGUAGES",
     "enable_library": "ANIWORLD_ENABLE_LIBRARY",
@@ -568,6 +570,10 @@ def _env_sections():
                     _one_or_zero(paths.lang_separation_enabled()),
                 ),
                 ("ANIWORLD_DISABLE_ENGLISH_SUB", _one_or_zero(english_sub_disabled())),
+                (
+                    "ANIWORLD_PARALLEL_DOWNLOADS",
+                    _one_or_zero(_flag("ANIWORLD_PARALLEL_DOWNLOADS")),
+                ),
                 (
                     "ANIWORLD_SEASON_EPISODE_NUMBERS",
                     _one_or_zero(_flag("ANIWORLD_SEASON_EPISODE_NUMBERS")),

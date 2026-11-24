@@ -181,7 +181,7 @@ def test_hls_download_and_cleanup_expand_prefix(explicit_path, monkeypatch):
     monkeypatch.setattr(hls, "_fetch_bytes", lambda *_: b"local segment bytes")
     monkeypatch.setattr(hls, "_publish_progress", lambda **_: None)
     progress = hls._common()
-    monkeypatch.setattr(progress, "_ffmpeg_progress", progress._ffmpeg_progress.copy())
+    monkeypatch.setattr(progress, "_ffmpeg_progress", progress._ProgressBoard())
 
     paths = hls.download_hls_parallel("https://example.invalid/video.m3u8", prefix_arg)
 

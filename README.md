@@ -51,7 +51,7 @@ Prefer another installation method? Use [Docker](#docker) or download a standalo
 
 ## Features
 
-- Download individual episodes, whole seasons or series, movies, and manga chapters.
+- Download individual episodes, whole seasons or series, movies, and manga chapters, optionally two episodes at once.
 - Search supported sites, track your download queue, and browse your library in the Web UI.
 - Schedule Auto-Sync checks for AniWorld titles already downloaded to your library.
 - Choose available audio and subtitle languages, with fallback to other stream hosters.
