@@ -563,6 +563,14 @@ def _click_submit_button(page):
     return False
 
 
+def _raise_if_force_cancelled():
+    """Stop waiting for a captcha once the web queue force-cancelled it."""
+    from ..models.common.common import DownloadCancelled, _force_cancel_requested
+
+    if _force_cancel_requested():
+        raise DownloadCancelled("Download cancelled")
+
+
 def _solve(url, prepare=None, timeout=300, optional_widgets=()):
     timeout = _captcha_timeout(timeout)
     with (
@@ -587,6 +595,7 @@ def _solve(url, prepare=None, timeout=300, optional_widgets=()):
         deadline = time.monotonic() + timeout
         solver = _ChallengeSolver(optional=optional_widgets)
         while time.monotonic() < deadline:
+            _raise_if_force_cancelled()
             if session:
                 session.update(page)
             result = _provider_result(context, url, submitted, existing_frames)

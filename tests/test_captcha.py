@@ -838,3 +838,20 @@ def test_generic_solver_submits_completed_widgets_before_returning(
     assert captcha.solve_captcha(SOURCE) == PLAYER
     solver.ready_to_submit.assert_called_once_with(page)
     handle.close.assert_called_once()
+
+
+def test_force_cancel_stops_waiting_for_a_captcha(browser, monkeypatch):
+    from aniworld.models.common import common
+
+    handle, page = browser
+    monkeypatch.setattr(captcha, "_is_captcha_page_dom", lambda page: True)
+    solver = Mock()
+    solver.ready_to_submit.return_value = False
+    monkeypatch.setattr(captcha, "_ChallengeSolver", lambda **_: solver)
+    monkeypatch.setattr(
+        common, "_force_cancel_requested", lambda: page.wait_for_timeout.call_count >= 2
+    )
+    with pytest.raises(common.DownloadCancelled):
+        captcha._solve(SOURCE, timeout=90)
+    assert page.wait_for_timeout.call_count == 2
+    handle.close.assert_called_once()

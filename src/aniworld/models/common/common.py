@@ -1374,6 +1374,10 @@ def download(self):
             1 if provider_name in SINGLE_ATTEMPT_PROVIDERS else max_retries
         )
         for attempt in range(1, provider_retries + 1):
+            # A force cancel that landed outside ffmpeg, e.g. during a captcha,
+            # must not walk through every remaining provider and retry.
+            if _force_cancel_requested():
+                raise DownloadCancelled("Download cancelled")
             try:
                 _reset_provider_resolution_cache(self)
                 headers = PROVIDER_HEADERS_D.get(provider_name, {})

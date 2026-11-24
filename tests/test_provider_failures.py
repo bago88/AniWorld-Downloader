@@ -138,3 +138,34 @@ def test_failed_modal_does_not_cache_serienstream_url(monkeypatch):
         with pytest.raises(ValueError, match="Failed to resolve provider URL"):
             _ = episode.stream_url
     assert solve.call_count == 2
+
+
+def test_force_cancel_skips_the_remaining_providers_and_retries(monkeypatch, tmp_path):
+    from aniworld.models.common import common
+
+    episode = SimpleNamespace(
+        url="https://s.to/serie/example/staffel-1/episode-1",
+        _episode_path=tmp_path / "Example S01E001.mkv",
+        _folder_path=tmp_path,
+        _base_folder=tmp_path,
+    )
+    attempts = []
+
+    def captcha_was_cancelled(path):
+        attempts.append(path)
+        raise RuntimeError("CAPTCHA browser closed")
+
+    monkeypatch.setattr(common.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        common, "_get_provider_attempt_order", lambda self: ["VOE", "Filemoon"]
+    )
+    monkeypatch.setattr(common, "_prepare_resolution_naming", lambda self: None)
+    monkeypatch.setattr(common, "_set_selected_provider", lambda *args: None)
+    monkeypatch.setattr(common, "_reset_provider_resolution_cache", lambda self: None)
+    monkeypatch.setattr(common, "check_downloaded", captcha_was_cancelled)
+    monkeypatch.setattr(common, "_cleanup_episode_download", lambda self: None)
+    monkeypatch.setattr(common, "_force_cancel_requested", lambda: bool(attempts))
+
+    with pytest.raises(common.DownloadCancelled):
+        common.download(episode)
+    assert len(attempts) == 1
