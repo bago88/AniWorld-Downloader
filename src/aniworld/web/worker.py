@@ -119,6 +119,9 @@ def _build_episode(url, extra, item, selected_path):
         kwargs["selected_pages"] = extra["selected_pages"]
     if selected_path:
         kwargs["selected_path"] = selected_path
+    # AutoSync fills the copy it found, not a folder the template renders anew
+    if item.get("series_folder"):
+        kwargs["series_folder"] = item["series_folder"]
 
     return provider, provider.episode_cls(**kwargs)
 

@@ -46,20 +46,27 @@ def download_platform(request, monkeypatch):
 
 
 def make_episode(
-    model, tmp_path, *, number=1, title="Title [Episode 062]", season=None
+    model,
+    tmp_path,
+    *,
+    number=1,
+    title="Title [Episode 062]",
+    season=None,
+    series=None,
+    **kwargs,
 ):
     cls, base = model
     return cls(
         f"{base}/staffel-2/episode-{number}",
-        series=SimpleNamespace(
-            title_cleaned="Example", release_year="2024", imdb="tt123"
-        ),
+        series=series
+        or SimpleNamespace(title_cleaned="Example", release_year="2024", imdb="tt123"),
         season=season or SimpleNamespace(season_number=2),
         episode_number=number,
         title_de="Deutscher Titel [Episode 999]",
         title_en=title,
         selected_path=tmp_path,
         selected_language="German Dub",
+        **kwargs,
     )
 
 
@@ -217,6 +224,69 @@ def test_existing_seasonal_path_is_reused(
     episode.selected_path = tmp_path / "other"
     assert episode._episode_path != old
     assert "062" in episode._episode_path.name
+
+
+@pytest.mark.parametrize(
+    "year,imdb,folder",
+    [
+        (None, "tt123", "Example [imdbid-tt123]"),
+        ("2024", None, "Example (2024)"),
+        (None, None, "Example"),
+    ],
+)
+def test_missing_metadata_leaves_no_none_in_the_folder(
+    model, tmp_path, monkeypatch, year, imdb, folder
+):
+    monkeypatch.setenv(
+        "ANIWORLD_NAMING_TEMPLATE",
+        "{title} ({year}) [imdbid-{imdbid}]/Season {season}/{title} S{season}E{episode}.mkv",
+    )
+    series = SimpleNamespace(title_cleaned="Example", release_year=year, imdb=imdb)
+    episode = make_episode(model, tmp_path, series=series)
+    assert episode._episode_path == (
+        tmp_path / folder / "Season 02" / "Example S02E062.mkv"
+    )
+
+
+def test_a_series_folder_found_on_disk_is_kept_when_the_year_span_grows(
+    model, tmp_path, monkeypatch
+):
+    monkeypatch.setenv(
+        "ANIWORLD_NAMING_TEMPLATE",
+        "{title} ({year}) [imdbid-{imdbid}]/Season {season}/{title} S{season}E{episode}.mkv",
+    )
+    existing = tmp_path / "Example (2015-2020) [imdbid-tt123]"
+    downloaded = existing / "Season 02" / "Example S02E062.mkv"
+    downloaded.parent.mkdir(parents=True)
+    downloaded.write_bytes(b"existing")
+    series = SimpleNamespace(
+        title_cleaned="Example", release_year="2015-2024", imdb="tt123"
+    )
+
+    episode = make_episode(model, tmp_path, series=series, series_folder=existing)
+    assert episode._episode_path == downloaded
+
+    later = make_episode(
+        model,
+        tmp_path,
+        number=2,
+        title="Title [Episode 063]",
+        series=series,
+        series_folder=existing,
+    )
+    assert later._episode_path == existing / "Season 02" / "Example S02E063.mkv"
+
+
+def test_without_a_series_folder_the_template_still_decides(
+    model, tmp_path, monkeypatch
+):
+    monkeypatch.setenv(
+        "ANIWORLD_NAMING_TEMPLATE",
+        "{title} ({year})/Season {season}/{title} S{season}E{episode}.mkv",
+    )
+    (tmp_path / "Example (2015-2020)").mkdir()
+    episode = make_episode(model, tmp_path)
+    assert episode._episode_path.parent.parent == tmp_path / "Example (2024)"
 
 
 def test_current_path_wins_if_both_names_exist(model, tmp_path, monkeypatch):

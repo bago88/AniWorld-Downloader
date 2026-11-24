@@ -336,6 +336,29 @@ def test_a_custom_path_deleted_while_queued_falls_back(
     assert calls[0]["selected_path"] == str(downloads)
 
 
+def test_the_series_folder_autosync_found_reaches_the_episode(queue_item, tmp_path):
+    folder = tmp_path / "Naruto (2002-2005) [imdbid-tt0409591]"
+    queue_id = queue_item(
+        episodes=["https://aniworld.to/anime/stream/naruto/staffel-1/episode-5"],
+        source="autosync",
+        series_folder=str(folder),
+    )
+    item = db.get_queue_item(queue_id)
+    url = json.loads(item["episodes"])[0]
+    _, episode = worker._build_episode(url, {}, item, None)
+    assert episode.series_folder == str(folder)
+
+
+def test_a_manual_download_gets_no_series_folder(queue_item):
+    queue_id = queue_item(
+        episodes=["https://aniworld.to/anime/stream/naruto/staffel-1/episode-5"]
+    )
+    item = db.get_queue_item(queue_id)
+    url = json.loads(item["episodes"])[0]
+    _, episode = worker._build_episode(url, {}, item, None)
+    assert episode.series_folder is None
+
+
 # ---------------------------------------------------------------------------
 # Discord notifications
 # ---------------------------------------------------------------------------

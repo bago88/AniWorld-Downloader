@@ -148,6 +148,7 @@ _SCHEMA = (
         current_url TEXT,
         errors TEXT NOT NULL DEFAULT '[]',
         custom_path_id INTEGER,
+        series_folder TEXT,
         source TEXT NOT NULL DEFAULT 'manual',
         captcha_url TEXT,
         discord_user_id TEXT,
@@ -200,6 +201,7 @@ _MIGRATIONS = {
     "download_queue": {
         "position": "INTEGER NOT NULL DEFAULT 0",
         "custom_path_id": "INTEGER",
+        "series_folder": "TEXT",
         "source": "TEXT NOT NULL DEFAULT 'manual'",
         "captcha_url": "TEXT",
         "discord_user_id": "TEXT",
@@ -427,13 +429,14 @@ def add_to_queue(
     custom_path_id=None,
     source="manual",
     discord_user_id=None,
+    series_folder=None,
 ):
     with session() as conn:
         cur = conn.execute(
             "INSERT INTO download_queue "
             "(title, series_url, episodes, total_episodes, language, provider, username, "
-            " custom_path_id, source, discord_user_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " custom_path_id, source, discord_user_id, series_folder) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 title,
                 series_url,
@@ -445,6 +448,7 @@ def add_to_queue(
                 custom_path_id,
                 source,
                 discord_user_id,
+                series_folder,
             ),
         )
         queue_id = cur.lastrowid

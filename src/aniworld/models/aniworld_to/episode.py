@@ -96,6 +96,7 @@ class AniworldEpisode:
         selected_path=None,
         selected_language=None,
         selected_provider=None,
+        series_folder=None,
     ):
         if not self.is_valid_aniworld_episode_url(url):
             raise ValueError(f"Invalid AniWorld episode URL: {url}")
@@ -112,6 +113,7 @@ class AniworldEpisode:
         self.__selected_path_param = selected_path
         self.__selected_language_param = selected_language
         self.__selected_provider_param = selected_provider
+        self.series_folder = series_folder
 
         self.__provider_data = None
 

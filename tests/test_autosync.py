@@ -379,6 +379,23 @@ def test_a_queued_sync_lands_in_the_custom_path_it_came_from(monkeypatch, tmp_pa
     assert db.get_queue_item(row["queue_id"])["custom_path_id"] == path_id
 
 
+def test_a_queued_sync_remembers_the_folder_it_found(monkeypatch, downloads):
+    """A grown year span renders a new folder name; the copy on disk wins."""
+    folder = downloads / "german-dub" / "Naruto (2002-2005) [imdbid-tt0409591]"
+    folder.mkdir(parents=True)
+    monkeypatch.setattr(
+        autosync, "_missing_episodes", lambda series, have: ["https://x/ep5"]
+    )
+    monkeypatch.setattr(
+        autosync, "resolve_provider", lambda url: _FakeProvider("Naruto")
+    )
+
+    row = autosync._handle(
+        candidate(folder, {"German Dub"}, lang_folder="german-dub"), "VOE"
+    )
+    assert db.get_queue_item(row["queue_id"])["series_folder"] == str(folder)
+
+
 def test_the_preferred_language_is_picked_when_several_match(monkeypatch, downloads):
     folder = downloads / "german-dub" / "Naruto"
     folder.mkdir(parents=True)
