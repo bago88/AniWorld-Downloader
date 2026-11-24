@@ -5,7 +5,10 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
+from aniworld.extractors.common import ProviderUnavailable
 from aniworld.extractors.provider import voe
+from aniworld.models import AniworldEpisode
+from aniworld.models.common import common
 from aniworld.models.s_to import episode as sto
 from aniworld.playwright import captcha
 
@@ -101,6 +104,100 @@ def test_temporary_voe_failure_still_retries(monkeypatch):
         == "https://cdn.example/video.m3u8"
     )
     sleep.assert_called_once_with(2)
+
+
+BLOCKED = ("<html>403 Forbidden</html>", "https://voe.sx/e/start", 403)
+VIDEO = ("'hls': 'https://cdn.example/video.m3u8'", "https://voe.sx/e/start", 200)
+
+
+@pytest.fixture
+def voe_static(monkeypatch):
+    fetch = Mock()
+    solve = Mock()
+    sleep = Mock()
+    monkeypatch.setattr(voe, "_voe_get", fetch)
+    monkeypatch.setattr(voe, "solve_captcha", solve)
+    monkeypatch.setattr(voe.time, "sleep", sleep)
+    return SimpleNamespace(fetch=fetch, solve=solve, sleep=sleep)
+
+
+@pytest.mark.parametrize(
+    "solved,responses",
+    [(None, [BLOCKED]), ("https://voe.sx/e/start", [BLOCKED, BLOCKED])],
+    ids=["timed-out", "still-blocked"],
+)
+def test_unsolved_voe_challenge_opens_the_browser_only_once(
+    voe_static, solved, responses
+):
+    voe_static.fetch.side_effect = responses
+    voe_static.solve.return_value = solved
+    with pytest.raises(ProviderUnavailable, match="VOE"):
+        voe.get_direct_link_from_voe("https://voe.sx/e/start")
+    voe_static.solve.assert_called_once_with("https://voe.sx/e/start")
+    assert voe_static.fetch.call_count == len(responses)
+    voe_static.sleep.assert_not_called()
+
+
+def test_unsolved_challenge_on_the_voe_redirect_does_not_retry(voe_static):
+    redirect = (
+        'window.location="https://voe.sx/e/mirror"',
+        "https://voe.sx/e/start",
+        200,
+    )
+    voe_static.fetch.side_effect = [redirect, BLOCKED]
+    voe_static.solve.return_value = None
+    with pytest.raises(ProviderUnavailable, match="not solved"):
+        voe.get_direct_link_from_voe("https://voe.sx/e/start")
+    voe_static.solve.assert_called_once_with("https://voe.sx/e/mirror")
+    voe_static.sleep.assert_not_called()
+
+
+def test_solved_voe_challenge_still_resolves_the_video(voe_static):
+    voe_static.fetch.side_effect = [BLOCKED, VIDEO]
+    voe_static.solve.return_value = "https://voe.sx/e/start"
+    assert (
+        voe.get_direct_link_from_voe("https://voe.sx/e/start")
+        == "https://cdn.example/video.m3u8"
+    )
+    voe_static.solve.assert_called_once()
+
+
+def test_unavailable_provider_falls_back_without_retrying(tmp_path, monkeypatch):
+    episode = AniworldEpisode(
+        "https://aniworld.to/anime/stream/example/staffel-1/episode-1",
+        series=SimpleNamespace(
+            title_cleaned="Example", release_year="2024", imdb="tt123"
+        ),
+        season=SimpleNamespace(season_number=1),
+        episode_number=1,
+        title_de="Titel",
+        title_en="Title",
+        selected_path=tmp_path,
+        selected_language="German Dub",
+    )
+    monkeypatch.setattr(common, "platform", SimpleNamespace(system=lambda: "Linux"))
+    monkeypatch.setattr(
+        common,
+        "check_downloaded",
+        Mock(
+            return_value={"exists": False, "audio_langs": set(), "video_langs": set()}
+        ),
+    )
+    monkeypatch.setattr(
+        type(episode), "provider_attempt_order", lambda self: ("VOE", "Vidoza")
+    )
+    attempts = []
+
+    def stream(self):
+        attempts.append(self.selected_provider)
+        if self.selected_provider == "VOE":
+            raise ProviderUnavailable("VOE challenge was not solved")
+        raise ValueError("Vidoza is down")
+
+    monkeypatch.setattr(type(episode), "stream_url", property(stream))
+    with pytest.raises(RuntimeError, match="VOE"):
+        episode.download()
+    assert attempts == ["VOE", "Vidoza", "Vidoza", "Vidoza"]
 
 
 def test_missing_chromium_error_survives_modal_solver(monkeypatch, tmp_path):

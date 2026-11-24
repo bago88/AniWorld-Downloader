@@ -1608,7 +1608,12 @@ def download(self):
                     f"Download attempt {attempt}/{provider_retries} failed for provider "
                     f"{provider_name}: {e}"
                 )
-                if attempt < provider_retries:
+                from ...extractors.common import ProviderUnavailable
+
+                # Retrying cannot bring back a deleted or blocked video.
+                if attempt < provider_retries and not isinstance(
+                    e, ProviderUnavailable
+                ):
                     logger.debug(f"Retrying download with provider {provider_name}...")
                     continue
 
@@ -1620,6 +1625,7 @@ def download(self):
                         f"Falling back from provider {provider_name} to "
                         f"{next_provider} for {getattr(self, 'url', 'episode')}"
                     )
+                break
 
     _remove_empty_dirs(
         self._folder_path,

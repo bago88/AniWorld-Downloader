@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 try:
     from ...config import DEFAULT_USER_AGENT, GLOBAL_SESSION, PROVIDER_HEADERS_D
     from ...playwright.captcha import is_captcha_page, solve_captcha
+    from ..common import ProviderUnavailable
 except ImportError:
     from aniworld.config import DEFAULT_USER_AGENT, GLOBAL_SESSION, PROVIDER_HEADERS_D
+    from aniworld.extractors.common import ProviderUnavailable
     from aniworld.playwright.captcha import is_captcha_page, solve_captcha
 
 # -----------------------------
@@ -133,8 +135,8 @@ def extract_voe_source_from_html(html):
 # -----------------------------
 # Main VOE functions
 # -----------------------------
-class _VOEUnavailable(ValueError):
-    """The hoster reports a permanently missing video (404/410)."""
+class _VOEUnavailable(ProviderUnavailable):
+    """The video is gone (404/410) or blocked behind an unsolved challenge."""
 
 
 def get_direct_link_from_voe(embeded_voe_link, headers=None, max_retries=3, timeout=30):
@@ -162,6 +164,20 @@ def get_direct_link_from_voe(embeded_voe_link, headers=None, max_retries=3, time
             raise _VOEUnavailable(f"VOE video unavailable (HTTP {result[2]}): {url}")
         return result
 
+    def fetch_past_challenge(url):
+        html, final, status = fetch(url)
+        if not is_captcha_page(html, status):
+            return html, final, status
+        # Retrying an IP block or an unattended challenge only reopens the browser.
+        if solve_captcha(url) is None:
+            raise _VOEUnavailable(f"VOE challenge was not solved: {url}")
+        html, final, status = fetch(url)
+        if status in (403, 503):
+            raise _VOEUnavailable(
+                f"VOE still blocked after challenge (HTTP {status}): {url}"
+            )
+        return html, final, status
+
     for attempt in range(max_retries):
         try:
             # Add delay between retries
@@ -173,12 +189,7 @@ def get_direct_link_from_voe(embeded_voe_link, headers=None, max_retries=3, time
                 time.sleep(wait_time)
 
             # Use the same static client before and after a CAPTCHA fallback.
-            html, _final, status = fetch(embeded_voe_link)
-
-            # Captcha on VOE page -> solve and retry this request
-            if is_captcha_page(html, status):
-                solve_captcha(embeded_voe_link)
-                html, _final, status = fetch(embeded_voe_link)
+            html, _final, _status = fetch_past_challenge(embeded_voe_link)
 
             # Try extracting source directly from the VOE embed page first
             source = extract_voe_source_from_html(html)
@@ -197,10 +208,7 @@ def get_direct_link_from_voe(embeded_voe_link, headers=None, max_retries=3, time
             if redirect_match:
                 redirect_url = redirect_match.group(1).strip()
                 try:
-                    html2, _f2, status2 = fetch(redirect_url)
-                    if is_captcha_page(html2, status2):
-                        solve_captcha(redirect_url)
-                        html2, _f2, status2 = fetch(redirect_url)
+                    html2, _f2, _status2 = fetch_past_challenge(redirect_url)
                     source = extract_voe_source_from_html(html2)
                     if source:
                         return source
