@@ -370,3 +370,40 @@ def test_versions_compare_numerically_not_alphabetically(lower, higher):
     from packaging.version import parse as parse_version
 
     assert parse_version(lower) < parse_version(higher)
+
+
+# ---------------------------------------------------------------------------
+# Transfer rate
+# ---------------------------------------------------------------------------
+def test_bursty_segments_give_a_steady_rate():
+    from aniworld.models.common.common import RateMeter
+
+    rate = RateMeter(window=10)
+    mb = 1024 * 1024
+    labels = []
+    # A 4 MB segment every 2 s with progress lines every 0.5 s in between.
+    for tick in range(41):
+        rate.add((tick // 4 + 1) * 4 * mb, now=tick * 0.5)
+        labels.append(rate.label())
+    steady = {label for label in labels[24:]}
+    assert steady <= {"1.8 MB/s", "1.9 MB/s", "2.0 MB/s", "2.1 MB/s", "2.2 MB/s"}
+
+
+def test_rate_needs_a_second_of_samples():
+    from aniworld.models.common.common import RateMeter
+
+    rate = RateMeter()
+    rate.add(0, now=0)
+    rate.add(5 * 1024 * 1024, now=0.5)
+    assert rate.label() == ""
+    rate.add(5 * 1024 * 1024, now=1.0)
+    assert rate.label() == "5.0 MB/s"
+
+
+def test_a_stalled_transfer_drops_to_zero():
+    from aniworld.models.common.common import RateMeter
+
+    rate = RateMeter(window=10)
+    for second in range(30):
+        rate.add(min(second, 5) * 1024 * 1024, now=second)
+    assert rate.label() == "0.0 MB/s"
