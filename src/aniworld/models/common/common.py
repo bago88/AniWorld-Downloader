@@ -540,15 +540,27 @@ _ffmpeg_progress_lock = threading.Lock()
 _ffmpeg_progress = _ProgressBoard()
 
 
-class RateMeter:
-    """Average transfer rate over the last few seconds.
+SMOOTH_RATE_SECONDS = 10.0
 
-    HLS segments arrive in bursts of several MB, so a rate taken between two
-    progress lines jumps between zero and a multiple of the real speed.
+
+def smooth_rate_enabled():
+    """Opt-in: show the average over the last seconds instead of the live rate."""
+    return os.getenv("ANIWORLD_SMOOTH_BANDWIDTH") == "1"
+
+
+class RateMeter:
+    """Transfer rate for the progress display.
+
+    HLS segments arrive in bursts of several MB, so the live rate between two
+    progress lines jumps between zero and a multiple of the real speed. With
+    smoothing on, the shown rate is the average over the last ten seconds.
     """
 
-    def __init__(self, window=10.0):
+    def __init__(self, window=None):
+        if window is None:
+            window = SMOOTH_RATE_SECONDS if smooth_rate_enabled() else 0.5
         self._window = window
+        self._smooth = window >= 1
         self._samples = deque()
 
     def add(self, total_bytes, now=None):
@@ -561,9 +573,14 @@ class RateMeter:
         if len(self._samples) < 2:
             return ""
         (start, first), (end, last) = self._samples[0], self._samples[-1]
-        if end - start < 1:
+        span = end - start
+        if span < (1 if self._smooth else self._window):
             return ""
-        return f"{max(last - first, 0) / (end - start) / 1024 / 1024:.1f} MB/s"
+        rate = max(last - first, 0) / span
+        # The live rate keeps the last shown value while no new data arrived.
+        if not self._smooth and rate <= 0:
+            return ""
+        return f"{rate / 1024 / 1024:.1f} MB/s"
 
 
 def get_ffmpeg_progress():

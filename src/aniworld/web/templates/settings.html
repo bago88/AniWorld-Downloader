@@ -166,6 +166,16 @@
           </p>
 
           <label class="checkbox">
+            <input type="checkbox" id="smoothBandwidth" data-setting="smooth_bandwidth"
+              aria-describedby="smoothBandwidthHint" />
+            <span data-i18n="settings.smooth_bandwidth">Steady download speed display</span>
+          </label>
+          <p class="hint" id="smoothBandwidthHint" data-i18n="settings.smooth_bandwidth_hint">
+            Shows the average speed of the last 10 seconds instead of the live value. HLS downloads arrive in segments
+            of several MB, so the live value keeps jumping. This only changes the display, not the download.
+          </p>
+
+          <label class="checkbox">
             <input type="checkbox" id="movieFolder" data-setting="movie_folder" />
             <span data-i18n="settings.movie_folder">Wrap movies in their own folder</span>
           </label>

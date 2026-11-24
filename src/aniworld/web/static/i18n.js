@@ -174,6 +174,9 @@
       "settings.show_all_languages": "Immer alle Sprachen anbieten",
       "settings.show_all_languages_hint":
         "Die Sprachauswahl zeigt normalerweise nur, was die erste Folge eines Titels hat. Schalte das ein, wenn eine spätere Folge eine Sprache dazubekommt. Folgen ohne die gewählte Sprache schlagen beim Download fehl.",
+      "settings.smooth_bandwidth": "Gleichmäßige Anzeige der Download-Geschwindigkeit",
+      "settings.smooth_bandwidth_hint":
+        "Zeigt den Durchschnitt der letzten 10 Sekunden statt des Live-Werts. HLS-Downloads kommen in Segmenten von mehreren MB an, deshalb springt der Live-Wert ständig. Das ändert nur die Anzeige, nicht den Download.",
       "settings.enable_htv_hint": "Erwachsenen-Animation. Standardmäßig aus.",
       "settings.enable_hentaitv_hint":
         "Erwachsenen-Animation mit englischen Untertiteln. Standardmäßig aus.",

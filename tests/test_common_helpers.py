@@ -392,7 +392,7 @@ def test_bursty_segments_give_a_steady_rate():
 def test_rate_needs_a_second_of_samples():
     from aniworld.models.common.common import RateMeter
 
-    rate = RateMeter()
+    rate = RateMeter(window=10)
     rate.add(0, now=0)
     rate.add(5 * 1024 * 1024, now=0.5)
     assert rate.label() == ""
@@ -407,3 +407,23 @@ def test_a_stalled_transfer_drops_to_zero():
     for second in range(30):
         rate.add(min(second, 5) * 1024 * 1024, now=second)
     assert rate.label() == "0.0 MB/s"
+
+
+def test_the_live_rate_is_shown_unless_smoothing_is_on(monkeypatch):
+    from aniworld.models.common.common import RateMeter
+
+    monkeypatch.delenv("ANIWORLD_SMOOTH_BANDWIDTH", raising=False)
+    mb = 1024 * 1024
+    live = RateMeter()
+    for now, total in [(0, 0), (0.5, 4 * mb), (1.0, 4 * mb)]:
+        live.add(total, now=now)
+    # A burst shows as such, and a quiet line keeps the last value on screen.
+    assert live.label() == ""
+    live.add(8 * mb, now=1.5)
+    assert live.label() == "8.0 MB/s"
+
+    monkeypatch.setenv("ANIWORLD_SMOOTH_BANDWIDTH", "1")
+    smooth = RateMeter()
+    for now, total in [(0, 0), (0.5, 4 * mb), (1.0, 4 * mb), (1.5, 8 * mb)]:
+        smooth.add(total, now=now)
+    assert smooth.label() == "5.3 MB/s"
