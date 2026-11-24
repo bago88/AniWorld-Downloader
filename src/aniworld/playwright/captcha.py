@@ -173,12 +173,16 @@ def _widgets(frame):
     return widgets
 
 
+# DDoS-Guard (used by VOE) titles its check page "DDoS-Guard" and has no widget.
+_CHALLENGE_PAGE_JS = """() => /just a moment|attention required|checking your browser|verifizierung|ddos-guard/i
+    .test(document.title) || Boolean(document.querySelector(
+        '#challenge-running, #cf-challenge-running, #challenge-form, [data-ddg-origin]'))"""
+
+
 def _is_captcha_page_dom(page) -> bool:
     """Wait for the challenge to disappear, even with existing clearance cookies."""
     try:
-        if page.evaluate("""() => /just a moment|attention required|checking your browser|verifizierung/i
-            .test(document.title) || Boolean(document.querySelector(
-                '#challenge-running, #cf-challenge-running, #challenge-form'))"""):
+        if page.evaluate(_CHALLENGE_PAGE_JS):
             return True
         return any(_widgets(frame) for frame in page.frames)
     except Error:
