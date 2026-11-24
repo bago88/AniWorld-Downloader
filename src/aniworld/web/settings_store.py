@@ -380,6 +380,7 @@ def read_settings():
         "disable_english_sub": english_sub_disabled(),
         "season_episode_numbers": _flag("ANIWORLD_SEASON_EPISODE_NUMBERS"),
         "show_all_languages": show_all_languages(),
+        "smooth_bandwidth": _flag("ANIWORLD_SMOOTH_BANDWIDTH"),
         **{f"enable_{site}": state for site, state in enabled_sites().items()},
         "enable_library": library_enabled(),
         "enable_autosync": autosync_enabled(),
@@ -415,6 +416,7 @@ _BOOL_SETTINGS = {
     "disable_english_sub": "ANIWORLD_DISABLE_ENGLISH_SUB",
     "season_episode_numbers": "ANIWORLD_SEASON_EPISODE_NUMBERS",
     "show_all_languages": "ANIWORLD_SHOW_ALL_LANGUAGES",
+    "smooth_bandwidth": "ANIWORLD_SMOOTH_BANDWIDTH",
     "enable_library": "ANIWORLD_ENABLE_LIBRARY",
     "enable_autosync": "ANIWORLD_ENABLE_AUTOSYNC",
     "autosync_new_only": "ANIWORLD_AUTOSYNC_NEW_ONLY",
@@ -573,6 +575,10 @@ def _env_sections():
                     _one_or_zero(_flag("ANIWORLD_SEASON_EPISODE_NUMBERS")),
                 ),
                 ("ANIWORLD_SHOW_ALL_LANGUAGES", _one_or_zero(show_all_languages())),
+                (
+                    "ANIWORLD_SMOOTH_BANDWIDTH",
+                    _one_or_zero(_flag("ANIWORLD_SMOOTH_BANDWIDTH")),
+                ),
                 (
                     "ANIWORLD_MOVIE_FOLDER",
                     _one_or_zero(_flag("ANIWORLD_MOVIE_FOLDER", "1")),
