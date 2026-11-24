@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 try:
     from ...config import DEFAULT_USER_AGENT, GLOBAL_SESSION, PROVIDER_HEADERS_D
     from ...playwright.captcha import is_captcha_page, solve_captcha
-    from ..common import ProviderUnavailable
+    from ..common import ProviderBlocked, ProviderUnavailable
 except ImportError:
     from aniworld.config import DEFAULT_USER_AGENT, GLOBAL_SESSION, PROVIDER_HEADERS_D
-    from aniworld.extractors.common import ProviderUnavailable
+    from aniworld.extractors.common import ProviderBlocked, ProviderUnavailable
     from aniworld.playwright.captcha import is_captcha_page, solve_captcha
 
 # -----------------------------
@@ -139,6 +139,10 @@ class _VOEUnavailable(ProviderUnavailable):
     """The video is gone (404/410) or blocked behind an unsolved challenge."""
 
 
+class _VOEBlocked(_VOEUnavailable, ProviderBlocked):
+    """VOE still shows its challenge, so the video may come back later."""
+
+
 def get_direct_link_from_voe(embeded_voe_link, headers=None, max_retries=3, timeout=30):
     """Get direct VOE video URL with improved retry logic."""
     parsed_embed_url = urlparse((embeded_voe_link or "").strip())
@@ -170,10 +174,10 @@ def get_direct_link_from_voe(embeded_voe_link, headers=None, max_retries=3, time
             return html, final, status
         # Retrying an IP block or an unattended challenge only reopens the browser.
         if solve_captcha(url) is None:
-            raise _VOEUnavailable(f"VOE challenge was not solved: {url}")
+            raise _VOEBlocked(f"VOE challenge was not solved: {url}")
         html, final, status = fetch(url)
         if status in (403, 503):
-            raise _VOEUnavailable(
+            raise _VOEBlocked(
                 f"VOE still blocked after challenge (HTTP {status}): {url}"
             )
         return html, final, status

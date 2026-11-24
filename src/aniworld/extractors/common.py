@@ -15,6 +15,10 @@ class ProviderUnavailable(ValueError):
     """The hoster refuses this video in a way another attempt cannot change."""
 
 
+class ProviderBlocked(ProviderUnavailable):
+    """The hoster has the video but blocks this connection for now."""
+
+
 def walk_objects(value):
     """Yield dictionaries from nested JSON objects and arrays."""
     if isinstance(value, dict):
