@@ -11,6 +11,10 @@ _JSON_LD = re.compile(
 )
 
 
+class ProviderUnavailable(ValueError):
+    """The hoster refuses this video in a way another attempt cannot change."""
+
+
 def walk_objects(value):
     """Yield dictionaries from nested JSON objects and arrays."""
     if isinstance(value, dict):
