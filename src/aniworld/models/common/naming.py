@@ -13,14 +13,27 @@ from .numbering import (
     season_episode_numbers_enabled,
 )
 
+# What "{title} ({year}) [imdbid-{imdbid}]" leaves behind when a value is missing
+_EMPTY_DECORATION = re.compile(r"\s*(\(\)|\[\]|\[imdbid-\])")
+
+
+def _render(part, values):
+    rendered = part.format(**values)
+    tidied = _EMPTY_DECORATION.sub("", rendered)
+    return tidied.strip() if tidied != rendered else rendered
+
 
 def numbered_episode_path(episode, number, *, padding=3, legacy_folders=False):
-    """Render the existing AniWorld/SerienStream template with one episode number."""
+    """Render the existing AniWorld/SerienStream template with one episode number.
+
+    An episode handed a series folder, the copy AutoSync found on disk, keeps
+    its downloads in there even when the rendered title folder would differ.
+    """
     template = os.getenv("ANIWORLD_NAMING_TEMPLATE", NAMING_TEMPLATE)
     values = {
         "title": episode.series.title_cleaned,
-        "year": episode.series.release_year,
-        "imdbid": episode.series.imdb,
+        "year": episode.series.release_year or "",
+        "imdbid": episode.series.imdb or "",
         "season": f"{episode.season.season_number:02d}",
         "episode": f"{number:0{padding}d}",
         "language": episode.selected_language,
@@ -35,12 +48,15 @@ def numbered_episode_path(episode, number, *, padding=3, legacy_folders=False):
             folders = folders.replace(placeholder, replacement)
     parts = folders.split("/") if "/" in template else []
     base = Path(episode.selected_path)
+    series_folder = getattr(episode, "series_folder", None)
     if parts:
-        base /= parts[0].format(**values)
-    folder = base / parts[1].format(**values) if len(parts) > 1 else base
+        base = (
+            Path(series_folder) if series_folder else base / _render(parts[0], values)
+        )
+    folder = base / _render(parts[1], values) if len(parts) > 1 else base
     if "." in filename:
         filename = filename.rsplit(".", 1)[0]
-    return base, folder / f"{filename.format(**values)}.{episode._file_extension}"
+    return base, folder / f"{_render(filename, values)}.{episode._file_extension}"
 
 
 def legacy_numbered_episode_paths(episode):

@@ -408,6 +408,7 @@ def _handle(candidate, provider_name):
         provider=provider_name,
         custom_path_id=candidate["custom_path_id"],
         source="autosync",
+        series_folder=str(candidate["folder"]),
     )
     return {
         **report,
