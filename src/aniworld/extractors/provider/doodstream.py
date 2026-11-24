@@ -5,7 +5,7 @@ import sys
 import time
 from urllib.parse import urljoin
 
-import niquests
+from curl_cffi import requests
 
 try:
     from ...config import DEFAULT_USER_AGENT
@@ -21,6 +21,7 @@ DOODSTREAM_BASE_URL = "https://dood.li"
 RANDOM_STRING_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 PASS_MD5_PATTERN = r"\$\.get\('([^']*\/pass_md5\/[^']*)'"
 TOKEN_PATTERN = r"token=([a-zA-Z0-9]+)"
+REQUEST_TIMEOUT = 15
 
 
 # -----------------------------
@@ -47,22 +48,27 @@ def _generate_random_string(length=10):
     return "".join(random.choices(RANDOM_STRING_CHARS, k=length))
 
 
-def _get_embed_page(embed_url, headers=None):
-    """Fetch HTML content of the embed page."""
-    headers = headers or _get_headers()
-    resp = niquests.get(embed_url, headers=headers, timeout=15)
-    resp.raise_for_status()
-    return resp.text
-
-
-def _get_pass_md5_url(embed_html, embed_url):
-    """Extract the pass_md5 URL from embed HTML."""
-    pass_md5_url = _extract_regex(
-        PASS_MD5_PATTERN, embed_html, "pass_md5 URL", embed_url
+def _doodstream_get(url, headers):
+    """Fetch with Chrome's TLS fingerprint, which Cloudflare lets through."""
+    resp = requests.get(
+        url, headers=headers, impersonate="chrome", timeout=REQUEST_TIMEOUT
     )
-    if not pass_md5_url.startswith("http"):
-        pass_md5_url = urljoin(DOODSTREAM_BASE_URL, pass_md5_url)
-    return pass_md5_url
+    resp.raise_for_status()
+    return resp
+
+
+def _get_embed_page(embed_url, headers=None):
+    """Fetch the embed page and return its HTML and the URL after redirects."""
+    resp = _doodstream_get(embed_url, headers or _get_headers())
+    return resp.text, str(resp.url)
+
+
+def _get_pass_md5_url(embed_html, page_url):
+    """Extract the pass_md5 URL from embed HTML, relative to the page it came from."""
+    pass_md5_path = _extract_regex(
+        PASS_MD5_PATTERN, embed_html, "pass_md5 URL", page_url
+    )
+    return urljoin(page_url, pass_md5_path)
 
 
 def _get_token(embed_html, embed_url):
@@ -79,14 +85,11 @@ def get_direct_link_from_doodstream(embed_url):
         raise ValueError("Embed URL cannot be empty")
 
     logger.info(f"Extracting Doodstream direct link from: {embed_url}")
-    headers = _get_headers(embed_url)
+    embed_html, page_url = _get_embed_page(embed_url, _get_headers(embed_url))
+    pass_md5_url = _get_pass_md5_url(embed_html, page_url)
+    token = _get_token(embed_html, page_url)
 
-    embed_html = _get_embed_page(embed_url, headers)
-    pass_md5_url = _get_pass_md5_url(embed_html, embed_url)
-    token = _get_token(embed_html, embed_url)
-
-    md5_resp = niquests.get(pass_md5_url, headers=headers, timeout=15)
-    md5_resp.raise_for_status()
+    md5_resp = _doodstream_get(pass_md5_url, _get_headers(page_url))
     video_base_url = md5_resp.text.strip()
     if not video_base_url:
         raise ValueError(f"Empty video base URL returned from {pass_md5_url}")
@@ -105,7 +108,7 @@ def get_preview_image_link_from_doodstream(embed_url):
 
 
 if __name__ == "__main__":
-    # Tested on 2026/01 -> WORKING
+    # Tested on 2026/11 -> WORKING
     # Example URLs: https://doodsearch.site
 
     # logging.basicConfig(level=logging.DEBUG)

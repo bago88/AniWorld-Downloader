@@ -252,9 +252,9 @@ def test_doodstream_requests_verify_tls_and_time_out(monkeypatch):
     def fake_get(url, **kwargs):
         calls.append(kwargs)
         text = embed if "/e/" in url else "https://cdn.example/video"
-        return SimpleNamespace(text=text, raise_for_status=lambda: None)
+        return SimpleNamespace(text=text, url=url, raise_for_status=lambda: None)
 
-    monkeypatch.setattr(doodstream.niquests, "get", fake_get)
+    monkeypatch.setattr(doodstream.requests, "get", fake_get)
 
     link = doodstream.get_direct_link_from_doodstream("https://dood.li/e/x")
 
