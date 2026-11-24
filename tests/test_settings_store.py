@@ -18,6 +18,7 @@ def test_defaults_of_a_fresh_install():
     assert settings["lang_separation"] is False
     assert settings["disable_english_sub"] is False
     assert settings["parallel_downloads"] is False
+    assert settings["parallel_episodes"] == 2
     assert settings["season_episode_numbers"] is False
     assert settings["show_all_languages"] is False
     assert settings["smooth_bandwidth"] is False
@@ -677,3 +678,16 @@ def test_the_settings_carry_a_preview_for_the_page():
     preview = settings_store.read_settings()["path_preview"]
     assert preview["episode"].endswith(".mkv")
     assert preview["movie"].endswith(".mkv")
+
+
+def test_the_number_of_parallel_episodes_can_be_set(monkeypatch):
+    monkeypatch.delenv("ANIWORLD_PARALLEL_EPISODES", raising=False)
+    update_settings({"parallel_episodes": 3})
+    assert os.environ["ANIWORLD_PARALLEL_EPISODES"] == "3"
+    assert settings_store.read_settings()["parallel_episodes"] == 3
+
+
+@pytest.mark.parametrize("value", [1, 7, "three", None])
+def test_an_invalid_number_of_parallel_episodes_is_refused(value):
+    with pytest.raises(SettingsError, match="parallel_episodes"):
+        update_settings({"parallel_episodes": value})

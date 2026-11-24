@@ -109,10 +109,18 @@
 
           <label class="checkbox">
             <input type="checkbox" id="parallelDownloads" data-setting="parallel_downloads" />
-            <span data-i18n="settings.parallel_downloads">Download two episodes at once</span>
+            <span data-i18n="settings.parallel_downloads">Download several episodes at once</span>
           </label>
+          <div class="control-row">
+            <label class="field field-compact">
+              <span data-i18n="settings.parallel_episodes">Episodes at once</span>
+              <select id="parallelEpisodes"></select>
+            </label>
+          </div>
           <p class="hint" data-i18n="settings.parallel_downloads_hint">
-            Hosters such as VOE limit the speed of each stream, so two episodes of a queue item at once finish about twice as fast. Different queue items still run one after another.
+            Hosters such as VOE limit the speed of each stream, so episodes of a queue item finish faster when several
+            download at once. Each stream needs about 2-4 MB/s: 2 suit a 50 Mbit/s line, 3 a 100 Mbit/s line. More than
+            the line can carry only slows every episode down. Different queue items still run one after another.
           </p>
 
           <h3 data-i18n="settings.output_format">Output Format</h3>

@@ -19,6 +19,7 @@ from ..config import (
 from ..logger import get_logger
 from . import paths, schedule
 from .media import SITE_KEYS, SITE_LABELS, SITES_OFF_BY_DEFAULT, WORKING_PROVIDERS
+from .worker import MAX_PARALLEL_EPISODES, parallel_episode_count
 
 logger = get_logger(__name__)
 
@@ -379,6 +380,8 @@ def read_settings():
         "lang_separation": paths.lang_separation_enabled(),
         "disable_english_sub": english_sub_disabled(),
         "parallel_downloads": _flag("ANIWORLD_PARALLEL_DOWNLOADS"),
+        "parallel_episodes": parallel_episode_count(),
+        "max_parallel_episodes": MAX_PARALLEL_EPISODES,
         "season_episode_numbers": _flag("ANIWORLD_SEASON_EPISODE_NUMBERS"),
         "show_all_languages": show_all_languages(),
         "smooth_bandwidth": _flag("ANIWORLD_SMOOTH_BANDWIDTH"),
@@ -512,6 +515,17 @@ def update_settings(data):
             raise SettingsError(f"Invalid ui_language: {language}")
         updates["ANIWORLD_UI_LANGUAGE"] = language
 
+    if "parallel_episodes" in data:
+        try:
+            count = int(data["parallel_episodes"])
+        except (TypeError, ValueError):
+            raise SettingsError("Invalid parallel_episodes") from None
+        if not 2 <= count <= MAX_PARALLEL_EPISODES:
+            raise SettingsError(
+                f"parallel_episodes must be between 2 and {MAX_PARALLEL_EPISODES}"
+            )
+        updates["ANIWORLD_PARALLEL_EPISODES"] = str(count)
+
     if "output_format" in data:
         fmt = str(data["output_format"]).strip().lower().lstrip(".")
         if fmt not in OUTPUT_FORMATS:
@@ -576,6 +590,7 @@ def _env_sections():
                     "ANIWORLD_PARALLEL_DOWNLOADS",
                     _one_or_zero(_flag("ANIWORLD_PARALLEL_DOWNLOADS")),
                 ),
+                ("ANIWORLD_PARALLEL_EPISODES", str(parallel_episode_count())),
                 (
                     "ANIWORLD_SEASON_EPISODE_NUMBERS",
                     _one_or_zero(_flag("ANIWORLD_SEASON_EPISODE_NUMBERS")),

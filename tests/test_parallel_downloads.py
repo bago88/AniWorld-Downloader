@@ -170,3 +170,30 @@ def test_progress_of_parallel_downloads_is_merged():
     assert board.snapshot()["percent"] == 60.0
     board.update(key=2, active=False)
     assert board.snapshot()["active"] is False
+
+
+@pytest.mark.parametrize(
+    "configured,expected",
+    [(None, 2), ("3", 3), ("6", 6), ("1", 2), ("9", 6), ("many", 2)],
+)
+def test_the_number_of_episodes_at_once_is_configurable(
+    monkeypatch, configured, expected
+):
+    monkeypatch.setenv("ANIWORLD_PARALLEL_DOWNLOADS", "1")
+    if configured is None:
+        monkeypatch.delenv("ANIWORLD_PARALLEL_EPISODES", raising=False)
+    else:
+        monkeypatch.setenv("ANIWORLD_PARALLEL_EPISODES", configured)
+    assert worker._parallel_episodes() == expected
+
+
+def test_three_episodes_run_at_once_when_configured(
+    queue_item, run_parallel, monkeypatch
+):
+    monkeypatch.setenv("ANIWORLD_PARALLEL_EPISODES", "3")
+    queue_id = queue_item(episodes=urls(6))
+    db.set_queue_status(queue_id, "running")
+    together = threading.Barrier(3, timeout=5)
+    started = run_parallel(queue_id, lambda url: url in urls(3) and together.wait())
+    assert sorted(started) == sorted(urls(6))
+    assert db.get_queue_item(queue_id)["status"] == "completed"
